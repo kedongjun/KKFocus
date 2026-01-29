@@ -1,0 +1,29 @@
+export class BaseSysUrlConstant {
+ public static readonly BASE_SYS_ADVICE_REPLY_ADD_OR_UPDATE: string = 'base-sys/base/sys/advice/reply/addOrUpdate';
+ public static readonly BASE_SYS_ADVICE_REPLY_BATCH_ADD_OR_UPDATE: string = 'base-sys/base/sys/advice/reply/batchAddOrUpdate';
+ public static readonly BASE_SYS_APP_CONFIG_URL: string = 'base-sys/base/sys/app-config';
+ public static readonly BASE_SYS_CLASSIFY: string = 'base-sys/base/sys/classify';
+ public static readonly BASE_SYS_CLASSIFY_INFO_URL: string = 'base-sys/base/sys/classify-info';
+ public static readonly BASE_SYS_DICT: string = 'base-sys/base/sys/dict';
+ public static readonly BASE_SYS_FIND_TODO_TEXT_TIPS_URL: string = 'base-sys/base/sys/find-todo-text-tips';
+ public static readonly BASE_SYS_GET_MSG_LIST_DAILY_CARE_LIST: string = 'base-sys/base/sys/getMsgListDailyCareList';
+ public static readonly BASE_SYS_GET_MSG_LIST_SPECIAL_DAY_LIST: string = 'base-sys/base/sys/getMsgListSpecialDayList';
+ public static readonly BASE_SYS_GET_MSG_LIST_TEMPLATE: string = 'base-sys/base/sys/getMsgListTemplate';
+ public static readonly BASE_SYS_GET_THEMES: string = 'base-sys/base/sys/getThemes';
+ public static readonly BASE_SYS_MSG_LIST_TEAM_PUSH_URL: string = 'base-sys/base/sys/msg-list-team-push';
+ public static readonly BASE_SYS_MULTI_CLASSIFY_URL: string = 'base-sys/base/sys/multi-classify';
+ public static readonly BASE_SYS_RANDOM_DICT_URL: string = 'base-sys/base/sys/random-dict';
+ public static readonly BASE_SYS_READ_CONFIG: string = 'base-sys/base/sys/readConfig';
+ public static readonly BASE_SYS_SKIN_INFO_URL: string = 'base-sys/base/sys/skin-info';
+ public static readonly BASE_SYS_SKIN_INFO_NEW_URL: string = 'base-sys/base/sys/skin-info-new';
+ public static readonly BASE_SYS_SYS_CONFIG_URL: string = 'base-sys/base/sys/sys-config';
+ public static readonly BASE_SYS_TEMPLATE_THEME_URL: string = 'base-sys/base/sys/template-theme';
+ public static readonly BASE_SYS_V2_ADVICE_ADD: string = 'base-sys/base/sys/v2/advice/add';
+ public static readonly BASE_SYSTEM_EVERYDAY_MOTTO_TEMPLATE_BATCH_INSERT_URL: string = 'base-sys/base/system/everyday_motto_template/batch_insert';
+ public static readonly BASE_SYSTEM_EVERYDAY_MOTTO_TEMPLATE_GET_NEWEST_URL: string = 'base-sys/base/system/everyday_motto_template/get_newest';
+ public static readonly BASE_SYSTEM_EVERYDAY_MOTTO_TEMPLATE_INSERT_OR_UPDATE_URL: string = 'base-sys/base/system/everyday_motto_template/insert_or_update';
+ public static readonly BASE_SYSTEM_EVERYDAY_MOTTO_TEMPLATE_SEARCH_URL: string = 'base-sys/base/system/everyday_motto_template/search';
+ public static readonly BASE_SYSTEM_LATEST_EVERYDAY_MOTTO_TEMPLATE_URL: string = 'base-sys/base/system/latest_everyday_motto_template';
+ public static readonly BASE_SYSTEM_LATEST_EVERYDAY_MOTTO_TEMPLATE_BY_PAGE_URL: string = 'base-sys/base/system/latest_everyday_motto_template_by_page';
+ public static readonly CHECKALIVE: string = 'base-sys/checkalive';
+}

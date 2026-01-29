@@ -1,0 +1,32 @@
+export class BaseDressUrlConstant {
+ public static readonly BASE_DRESS_JOB_ELEMENTS: string = 'base-dress/base/dress/job/elements';
+ public static readonly BASE_DRESS_V1_ADD_DRESS_WEATHER: string = 'base-dress/base/dress/v1/addDressWeather';
+ public static readonly BASE_DRESS_V1_ADD_OCCASION: string = 'base-dress/base/dress/v1/addOccasion';
+ public static readonly BASE_DRESS_V1_ADD_USER_DRESS: string = 'base-dress/base/dress/v1/addUserDress';
+ public static readonly BASE_DRESS_V1_DATE_RANGE_COUNT: string = 'base-dress/base/dress/v1/dateRangeCount';
+ public static readonly BASE_DRESS_V1_DELETE_OCCASION: string = 'base-dress/base/dress/v1/deleteOccasion';
+ public static readonly BASE_DRESS_V1_DELETE_USER_DRESS: string = 'base-dress/base/dress/v1/deleteUserDress';
+ public static readonly BASE_DRESS_V1_EXISTED_USER_DRESS_BY_OCCASION_ID: string = 'base-dress/base/dress/v1/existedUserDressByOccasionId';
+ public static readonly BASE_DRESS_V1_GET_DRESS_DATE: string = 'base-dress/base/dress/v1/getDressDate';
+ public static readonly BASE_DRESS_V1_GET_DRESS_FINISHED: string = 'base-dress/base/dress/v1/getDressFinished';
+ public static readonly BASE_DRESS_V1_GET_DRESS_FUTURE_DAYS: string = 'base-dress/base/dress/v1/getDressFutureDays';
+ public static readonly BASE_DRESS_V1_GET_DRESS_REMIND: string = 'base-dress/base/dress/v1/getDressRemind';
+ public static readonly BASE_DRESS_V1_GET_DRESS_SEASON: string = 'base-dress/base/dress/v1/getDressSeason';
+ public static readonly BASE_DRESS_V1_GET_DRESS_TODO_VIEW: string = 'base-dress/base/dress/v1/getDressTodoView';
+ public static readonly BASE_DRESS_V1_GET_OCCASIONS: string = 'base-dress/base/dress/v1/getOccasions';
+ public static readonly BASE_DRESS_V1_GET_USER_DRESS: string = 'base-dress/base/dress/v1/getUserDress';
+ public static readonly BASE_DRESS_V1_GET_USER_DRESS_BY_TYPE: string = 'base-dress/base/dress/v1/getUserDressByType';
+ public static readonly BASE_DRESS_V1_GET_USER_DRESS_DETAIL: string = 'base-dress/base/dress/v1/getUserDressDetail';
+ public static readonly BASE_DRESS_V1_GET_USER_DRESS_RECOMMEND: string = 'base-dress/base/dress/v1/getUserDressRecommend';
+ public static readonly BASE_DRESS_V1_GET_USER_DRESS_RECOMMENDS: string = 'base-dress/base/dress/v1/getUserDressRecommends';
+ public static readonly BASE_DRESS_V1_GETREMINDELEMENTS: string = 'base-dress/base/dress/v1/getremindelements';
+ public static readonly BASE_DRESS_V1_SET_DRESS_FINISHED: string = 'base-dress/base/dress/v1/setDressFinished';
+ public static readonly BASE_DRESS_V1_SET_FAVOR: string = 'base-dress/base/dress/v1/setFavor';
+ public static readonly BASE_DRESS_V1_SET_REMIND: string = 'base-dress/base/dress/v1/setRemind';
+ public static readonly BASE_DRESS_V1_TODO_VIEW_LIST_URL: string = 'base-dress/base/dress/v1/todo_view_list';
+ public static readonly BASE_DRESS_V1_UPDATE_OCCASION: string = 'base-dress/base/dress/v1/updateOccasion';
+ public static readonly BASE_DRESS_V1_UPDATE_USER_DRESS: string = 'base-dress/base/dress/v1/updateUserDress';
+ public static readonly BASE_DRESS_V1_USER_DRESSED: string = 'base-dress/base/dress/v1/userDressed';
+ public static readonly BASE_DRESS_V2_GET_USER_DRESS_RECOMMEND: string = 'base-dress/base/dress/v2/getUserDressRecommend';
+ public static readonly CHECKALIVE: string = 'base-dress/checkalive';
+}

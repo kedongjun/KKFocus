@@ -41,6 +41,10 @@
   },
   "modules": [
     {
+      "name": "api",
+      "srcPath": "./commons/api"
+    },
+    {
       "name": "entry",
       "srcPath": "./entry",
       "targets": [
