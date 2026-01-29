@@ -6,6 +6,18 @@ import { TomatoClock } from '../view/TomatoClock'
 import { RestClock } from '../view/RestClock'
 
 
+
+// 定义参数类型
+export interface RouterParams {
+  tomatoNum: number, // 番茄总数：第一次是从外部页面传进来
+  tomatoDuration: number, // 每个番茄时长（秒）：第一次是从外部页面传进来
+  tomatoModel: number, // 番茄类型：第一次是从外部页面传进来
+  isAutoRested: boolean, // 用户是否勾选了自动休息：第一次是从外部页面传进来
+  isStrict: boolean, // 用户是否勾选了严格专注：第一次是从外部页面传进来
+  title: string, // 用户是否勾选了严格专注：第一次是从外部页面传进来
+  restDuration: number, // 单次休息时长：第一次是初始化里面赋值
+}
+
 /**
  * 番茄钟页面 - 完整示例（使用SVGA扩散圆环动画）
  * 
@@ -23,7 +35,7 @@ struct TomatoClockPage {
   @State tomatoNum: number = 4
   @State currentSegment: number = 0
   @State elapsedTime: number = 0
-  @State segmentTime: number = 30
+  @State tomatoDuration: number = 30
   @State isPaused: boolean = false
   @State isDone: boolean = false
   @State useTime: number = 0
@@ -35,8 +47,20 @@ struct TomatoClockPage {
   
   aboutToAppear() {
     // ========== 初始化番茄钟 ==========
-    this.tomatoViewModel.tomatoNum = this.tomatoNum
-    this.tomatoViewModel.segmentTime = this.segmentTime
+    //传过来的参数
+    const params = this.getUIContext().getRouter().getParams() as RouterParams; // 类型断言
+    if (params) {
+      LogUtil.debug('番茄钟，传过来的参数，params====' + JSON.stringify(params))
+      this.tomatoViewModel.tomatoNum = params.tomatoNum;
+      this.tomatoViewModel.tomatoDuration = params.tomatoDuration;
+      this.tomatoViewModel.tomatoModel = params.tomatoModel;
+      this.tomatoViewModel.isAutoRested = params.isAutoRested;
+      this.tomatoViewModel.isStrict = params.isStrict;
+      this.tomatoViewModel.title = params.title;
+      this.tomatoViewModel.restDuration = params.restDuration;
+      this.tomatoViewModel.initClockData()
+    }
+
     
     // 设置状态变化回调 - 用于同步状态到UI
     this.tomatoViewModel.onStateChange(() => {
@@ -138,9 +162,9 @@ struct TomatoClockPage {
   
   private syncTomatoState() {
     this.tomatoNum = this.tomatoViewModel.tomatoNum
-    this.currentSegment = this.tomatoViewModel.currentSegment
-    this.elapsedTime = this.tomatoViewModel.elapsedTime
-    this.segmentTime = this.tomatoViewModel.segmentTime
+    this.currentSegment = this.tomatoViewModel.currentTomato
+    this.elapsedTime = this.tomatoViewModel.currentTomatoSeconds
+    this.tomatoDuration = this.tomatoViewModel.tomatoDuration
     this.isPaused = this.tomatoViewModel.isPaused
     this.isDone = this.tomatoViewModel.isDone
     this.useTime = this.tomatoViewModel.useTime
@@ -221,7 +245,7 @@ struct TomatoClockPage {
             tomatoNum: this.tomatoNum,
             currentSegment: this.currentSegment,
             elapsedTime: this.elapsedTime,
-            segmentTime: this.segmentTime
+            segmentTime: this.tomatoDuration
           })
             .margin({ top: 40, bottom: 40 })
           
@@ -262,72 +286,7 @@ struct TomatoClockPage {
               })
           }
           .margin({ bottom: 20 })
-          
-          Column() {
-            Divider().margin({ top: 20, bottom: 20 })
-            
-            Text('配置')
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .margin({ bottom: 10 })
-            
-            Row() {
-              Text('番茄时长（秒）：')
-              TextInput({ text: this.segmentTime.toString() })
-                .width(100)
-                .type(InputType.Number)
-                .onChange((value) => {
-                  const num = parseInt(value)
-                  if (num > 0) {
-                    this.segmentTime = num
-                    this.tomatoViewModel.segmentTime = num
-                  }
-                })
-            }
-            .margin({ bottom: 10 })
-            
-            Row() {
-              Text('休息时长（秒）：')
-              TextInput({ text: this.restTime.toString() })
-                .width(100)
-                .type(InputType.Number)
-                .onChange((value) => {
-                  const num = parseInt(value)
-                  if (num > 0) {
-                    this.restTime = num
-                    this.restViewModel.restTime = num
-                  }
-                })
-            }
-            .margin({ bottom: 10 })
-            
-            Row() {
-              Text('番茄总数：')
-              TextInput({ text: this.tomatoNum.toString() })
-                .width(100)
-                .type(InputType.Number)
-                .onChange((value) => {
-                  const num = parseInt(value)
-                  if (num > 0) {
-                    this.tomatoNum = num
-                    this.tomatoViewModel.tomatoNum = num
-                  }
-                })
-            }
-            .margin({ bottom: 10 })
-            
-            Button('应用配置')
-              .onClick(() => {
-                this.tomatoViewModel.reset()
-                this.tomatoViewModel.tomatoNum = this.tomatoNum
-                this.tomatoViewModel.segmentTime = this.segmentTime
-                this.tomatoViewModel.start()
-              })
-          }
-          .padding(20)
-          .width('90%')
-          .backgroundColor('#F5F5F5')
-          .borderRadius(10)
+
         }
         .width('100%')
         .height('100%')

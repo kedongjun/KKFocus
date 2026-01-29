@@ -7,6 +7,6 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@aliyun/oss": "^1.0.0-beta.1",
-    "@pura/harmony-utils": "^1.3.8"
+    "@pura/harmony-utils": "^1.3.8",
   }
 }

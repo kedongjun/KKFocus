@@ -1,17 +1,9 @@
 import { LogUtil } from '@pura/harmony-utils'
+import { BaseFocusDefinition } from 'api'
+import { ClockData, EventData, FocusDataUtil, FocusPreferenceName } from '../utils/FocusDataUtil'
+import { TimeUtil } from '../utils/TimeUtil'
 
-/**
- * 番茄钟状态数据类
- */
-export class TomatoClockState {
-  tomatoNum: number = 4
-  segmentTime: number = 30
-  currentSegment: number = 0
-  elapsedTime: number = 0
-  useTime: number = 0
-  isPaused: boolean = false
-  isDone: boolean = false
-}
+
 
 /**
  * 番茄钟ViewModel - 负责所有业务逻辑
@@ -27,16 +19,26 @@ export class TomatoClockState {
  */
 export class TomatoClockViewModel {
   // ============ 配置参数 ============
-  public tomatoNum: number = 4          // 番茄总数
-  public segmentTime: number = 30       // 每个番茄时长（秒）
-  
+  public tomatoNum: number = 4               // 番茄总数：第一次是从外部页面传进来
+  public tomatoDuration: number = 30         // 每个番茄时长（秒）：第一次是从外部页面传进来
+  public tomatoModel: number = 30            // 番茄类型：第一次是从外部页面传进来
+  public isAutoRested: boolean = false       // 用户是否勾选了自动休息：第一次是从外部页面传进来
+  public isStrict: boolean = false           // 用户是否勾选了严格专注：第一次是从外部页面传进来
+  public title: string = ''                  // 用户是否勾选了严格专注：第一次是从外部页面传进来
+  public restDuration: number = 0            // 单次休息时长：第一次是初始化里面赋值
+  public startTimestamp: number = 0          // 番茄钟任务执行的开始时间：第一次是初始化里面赋值
+
   // ============ 状态数据 ============
-  public currentSegment: number = 0     // 当前进行到第几个番茄（0-based）
-  public elapsedTime: number = 0        // 当前番茄已用时间（秒）
-  public useTime: number = 0            // 总共使用的时间（秒）
-  public isPaused: boolean = false      // 是否暂停
-  public isDone: boolean = false        // 是否全部完成
-  
+  public currentTomato: number = 0          // 当前进行到第几个番茄（0-based）
+  public currentTomatoSeconds: number = 0             // 当前番茄已用时间（秒）
+  public useTime: number = 0                 // 总共使用的时间（秒）
+  public isPaused: boolean = false           // 是否暂停
+  public isTipRest: boolean = false          // 是否提示休息（没开启自动休息时候，展示提示休息组件）
+  public isResting: boolean = false          // 是否休息中
+  public currentRestSeconds: number = 0      // 当前休息的时长
+  public currentRest: number = 0             // 当前是第几次休息
+  public isDone: boolean = false             // 是否全部完成（展示延迟组件）
+
   // ============ 定时器管理 ============
   private timerId: number = -1
   private lastTimestamp: number = 0
@@ -44,14 +46,29 @@ export class TomatoClockViewModel {
   private readonly TICK_INTERVAL = 200  // 定时器间隔（毫秒）
   
   // ============ 回调函数 ============
-  private onSegmentCompleteCallback?: (currentSegment: number, total: number) => void
+  private onSegmentCompleteCallback?: (currentTomato: number, total: number) => void
   private onAllCompleteCallback?: () => void
   private onStateChangeCallback?: () => void  // 状态变化时通知UI更新
+
+
+  // ============ 提交给服务端的数据 ============
+  private focusInput: BaseFocusDefinition.FocusRecordInputV2 = {
+    endTime: TimeUtil.getCurrentTimeFormatted(),
+    focusType: 3,
+    fullTime: 0,
+    startTime: TimeUtil.formatDateToStr(new Date(this.startTimestamp)),
+    title: '番茄钟测试',
+    useTime: Math.floor(this.currentTomatoSeconds / 60),
+    focusNum: this.tomatoNum,
+    eventList: [],
+    musicName: '默认',
+    // remark?: string;
+  }
   
   /**
    * 设置段完成回调
    */
-  public onSegmentComplete(callback: (currentSegment: number, total: number) => void) {
+  public onSegmentComplete(callback: (currentTomato: number, total: number) => void) {
     this.onSegmentCompleteCallback = callback
   }
   
@@ -122,10 +139,10 @@ export class TomatoClockViewModel {
     this.lastTimestamp = now
     
     // 更新当前段已用时间
-    this.elapsedTime = realElapsedTime
+    this.currentTomatoSeconds = realElapsedTime
     
     // 检查是否完成当前段
-    if (this.elapsedTime >= this.segmentTime) {
+    if (this.currentTomatoSeconds >= this.tomatoDuration) {
       this.handleSegmentComplete()
       
       // 关键：如果熄屏时间过长，可能连续完成多个段
@@ -141,14 +158,14 @@ export class TomatoClockViewModel {
    * 处理段完成
    */
   private handleSegmentComplete(): void {
-    this.currentSegment++
-    this.elapsedTime = 0
+    this.currentTomato++
+    this.currentTomatoSeconds = 0
     this.segmentStartTime = 0  // 重置段开始时间，等待下次start时重新设置
     
-    LogUtil.debug(`TomatoClock: 完成第 ${this.currentSegment} 个番茄`)
+    LogUtil.debug(`TomatoClock: 完成第 ${this.currentTomato} 个番茄`)
     
     // 触发段完成回调（让Page层决定是否进入休息）
-    this.onSegmentCompleteCallback?.(this.currentSegment, this.tomatoNum)
+    this.onSegmentCompleteCallback?.(this.currentTomato, this.tomatoNum)
     
     // 关键修改：段完成后暂停，等待Page层控制
     // 如果进入休息，Page会调用resume()来继续下一个番茄
@@ -156,7 +173,7 @@ export class TomatoClockViewModel {
     this.lastTimestamp = Date.now()
     
     // 检查是否全部完成
-    if (this.currentSegment >= this.tomatoNum) {
+    if (this.currentTomato >= this.tomatoNum) {
       this.handleAllComplete()
     }
   }
@@ -195,7 +212,7 @@ export class TomatoClockViewModel {
     this.lastTimestamp = Date.now()
     
     // 重新设置当前段的开始时间（减去已用时间）
-    this.segmentStartTime = Date.now() - this.elapsedTime * 1000
+    this.segmentStartTime = Date.now() - this.currentTomatoSeconds * 1000
     
     // 如果定时器被停止过，需要重新启动
     if (this.timerId === -1) {
@@ -234,8 +251,8 @@ export class TomatoClockViewModel {
     LogUtil.debug('TomatoClock: 重置')
     this.stop()
     
-    this.currentSegment = 0
-    this.elapsedTime = 0
+    this.currentTomato = 0
+    this.currentTomatoSeconds = 0
     this.useTime = 0
     this.isDone = false
     this.isPaused = false
@@ -261,30 +278,15 @@ export class TomatoClockViewModel {
     
     this.notifyStateChange()
   }
-  
-  /**
-   * 获取当前状态快照（用于UI显示或持久化）
-   */
-  public getState(): TomatoClockState {
-    const state = new TomatoClockState()
-    state.tomatoNum = this.tomatoNum
-    state.segmentTime = this.segmentTime
-    state.currentSegment = this.currentSegment
-    state.elapsedTime = this.elapsedTime
-    state.useTime = this.useTime
-    state.isPaused = this.isPaused
-    state.isDone = this.isDone
-    return state
-  }
-  
+
   /**
    * 从状态恢复（用于从持久化数据恢复）
    */
-  public restoreState(state: TomatoClockState): void {
+  public restoreState(state: ClockData): void {
     this.tomatoNum = state.tomatoNum
-    this.segmentTime = state.segmentTime
-    this.currentSegment = state.currentSegment
-    this.elapsedTime = state.elapsedTime
+    this.tomatoDuration = state.tomatoDuration
+    this.currentTomato = state.currentTomato
+    this.currentTomatoSeconds = state.currentTomatoSeconds
     this.useTime = state.useTime
     this.isPaused = state.isPaused
     this.isDone = state.isDone
@@ -308,10 +310,10 @@ export class TomatoClockViewModel {
     const realElapsedTime = (now - this.segmentStartTime) / 1000
     
     // 检查是否应该完成当前番茄
-    if (realElapsedTime >= this.segmentTime) {
+    if (realElapsedTime >= this.tomatoDuration) {
       LogUtil.debug(`TomatoClock: 校准发现应完成番茄，elapsed=${realElapsedTime}秒`)
       
-      this.elapsedTime = realElapsedTime
+      this.currentTomatoSeconds = realElapsedTime
       this.handleSegmentComplete()
       this.notifyStateChange()
       
@@ -319,7 +321,7 @@ export class TomatoClockViewModel {
     }
     
     // 更新当前时间
-    this.elapsedTime = realElapsedTime
+    this.currentTomatoSeconds = realElapsedTime
     this.notifyStateChange()
     
     return false  // 没有完成，不需要继续检查
@@ -334,4 +336,107 @@ export class TomatoClockViewModel {
     this.onAllCompleteCallback = undefined
     this.onStateChangeCallback = undefined
   }
+
+
+
+
+  /**
+   * 保存番茄钟事件数据快照（用于UI显示或持久化）
+   * @type 事件类型
+   * @content 事件内容
+   * @focusMinute 本次事件的番茄时长
+   * @clockTimestamp 事件时间（时间戳）
+   */
+  addFocusEvent(type: number, content: string, focusMinute: number, clockTimestamp?: number,) {
+    LogUtil.debug('事件数据：addFocusEvent() type===' + type + '，content===' + content + '，focusMinute===' + focusMinute + '，clockTimestamp===' + clockTimestamp )
+    let eventTime = clockTimestamp? clockTimestamp : Date.now()
+
+    let event: BaseFocusDefinition.FocusRecordEventInputV2 = {
+      eventTime:  TimeUtil.formatDateToStr(new Date(eventTime)),//转换成日期字符串格式
+      eventType: type, //事件类型：1-暂停 2-继续 3-完成番茄钟 4-开始番茄钟 5-休息 6-延长 7-打开第三方应用
+      focusMinute: Math.floor( focusMinute / 60),//转换成分钟
+      content: content,
+    }
+    LogUtil.debug('事件数据：this.focusInput.eventList ====' + JSON.stringify(this.focusInput.eventList))
+
+
+    // 如果最后一条内容只有“暂停：”，则删掉
+    if (type === 1 && this.focusInput.eventList && this.focusInput.eventList.length > 0) {
+      if (this.focusInput.eventList[this.focusInput.eventList.length -1].content === '暂停：') {
+        this.focusInput.eventList.pop();
+        LogUtil.debug('事件数据：pop 如果最后一条内容只有“暂停：”，则删掉')
+      }
+    }
+
+    this.focusInput.eventList?.push(event)
+
+    LogUtil.debug('事件数据：push ====' + JSON.stringify(event))
+    LogUtil.debug('事件数据：this.focusInput.eventList ====' + JSON.stringify(this.focusInput.eventList))
+
+    // 保存事件数据
+    let eventData: EventData = {
+      eventList:this.focusInput.eventList
+    }
+
+    LogUtil.debug('事件数据：data ====' + JSON.stringify(eventData))
+    FocusDataUtil.saveEventData(FocusPreferenceName.Tomato, eventData)
+
+
+    //更新 番茄钟数据快照
+    this.saveClockData(eventTime)
+  }
+
+
+  /**
+   * 初始化番茄钟数据快照（用于UI显示或持久化）
+   */
+  initClockData() {
+    let clockData: ClockData = FocusDataUtil.getClockData(FocusPreferenceName.Tomato)
+    if (clockData.startTimestamp === 0) {
+      clockData.startTimestamp = Date.now()
+      clockData.tomatoNum = this.tomatoNum
+      clockData.tomatoDuration = this.tomatoDuration
+      clockData.tomatoModel = this.tomatoModel
+      clockData.isAutoRested = this.isAutoRested
+      clockData.isStrict = this.isStrict
+      clockData.title = this.title
+      clockData.restDuration = this.restDuration
+
+      LogUtil.debug('番茄钟：initClockData() 初始化时钟数据 clockData===' + JSON.stringify(clockData))
+      FocusDataUtil.saveClockData(FocusPreferenceName.Tomato, clockData)
+    } else {
+      LogUtil.debug('番茄钟：saveClockData() 时钟数据已存在，不需要重复初始化' )
+    }
+  }
+
+  /**
+   * 保存番茄钟数据快照（用于UI显示或持久化）
+   */
+  saveClockData(eventTime:number) {
+    let clockData: ClockData = FocusDataUtil.getClockData(FocusPreferenceName.Tomato)
+    clockData.eventTimestamp = eventTime
+    clockData.currentTomato = this.currentTomato
+    clockData.isPaused = this.isPaused
+    clockData.useTime = this.useTime
+    clockData.currentTomatoSeconds = this.currentTomatoSeconds
+    clockData.isTipRest = this.isTipRest
+    clockData.isResting = this.isResting
+    clockData.currentRestSeconds = this.currentRestSeconds
+    clockData.currentRestSeconds = this.currentRest
+    clockData.isDone = this.isDone
+
+    LogUtil.debug('番茄钟：saveClockData() 保存时钟数据 clockData===' + JSON.stringify(clockData))
+    FocusDataUtil.saveClockData(FocusPreferenceName.Tomato, clockData)
+  }
+
+
+  /**
+   * 获取番茄钟数据快照（用于UI显示或持久化）
+   */
+  public getClockData(): ClockData {
+    const clockData: ClockData = FocusDataUtil.getClockData(FocusPreferenceName.Tomato)
+    return clockData
+  }
+
+
 }
