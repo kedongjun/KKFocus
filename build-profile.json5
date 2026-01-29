@@ -1,12 +1,26 @@
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "/Users/kedongjun/.ohos/config/default_KKFocus_dizq2cHVsOcUe_G2X630A_xeM_swOpxc_zxWIWFOBVk=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B2F82318B88EC5B1CBD2277D8865BA755BA3934F0E68D01CC5615896D0E9D1934108F6DD3040262",
+          "profile": "/Users/kedongjun/.ohos/config/default_KKFocus_dizq2cHVsOcUe_G2X630A_xeM_swOpxc_zxWIWFOBVk=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "/Users/kedongjun/.ohos/config/default_KKFocus_dizq2cHVsOcUe_G2X630A_xeM_swOpxc_zxWIWFOBVk=.p12",
+          "storePassword": "0000001B2E78C903F3167F457B5B16E4980646A92B2C8E3405F08E7C7A7DFA87CB61DF6178D7FD9AB87F7A"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",
         "signingConfig": "default",
         "targetSdkVersion": "6.0.2(22)",
-        "compatibleSdkVersion": "6.0.2(22)",
+        "compatibleSdkVersion": "5.1.0(18)",
         "runtimeOS": "HarmonyOS",
         "buildOption": {
           "strictMode": {
