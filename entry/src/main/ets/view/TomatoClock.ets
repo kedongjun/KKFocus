@@ -237,8 +237,8 @@ export struct TomatoClock {
       Column() {
         // 当前番茄序号
         Row() {
-          Image($r('[allresources].media.focus_start_tomato')).width(24).height(24)
-          Image($r('[allresources].media.common_icon_cancer_white')).width(24).height(24)
+          Image($r('app.media.focus_start_tomato')).width(24).height(24)
+          Image($r('app.media.common_icon_cancer_white')).width(24).height(24)
           Text(this.getDisplayCount().toString())
             .fontColor(Color.White)
             .fontSize(24)
