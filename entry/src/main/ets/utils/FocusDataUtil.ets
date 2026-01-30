@@ -60,7 +60,6 @@ export interface ClockData {
   currentRestSeconds: number//当前休息的运行时长
   currentRest: number//当前是第n次休息
   isDone: boolean//延长页面,全部番茄完成之后展示延迟组件,并且杀进程重新进来的时候也需要展示
-  isExtension: boolean//是否正在延长阶段
 }
 
 export interface EventData {
@@ -103,7 +102,6 @@ export class FocusDataUtil {
     PrefsManager.getInstanceSync(preferenceName).putSync(ClockDataKey.currentRestSeconds, data.currentRestSeconds)
     PrefsManager.getInstanceSync(preferenceName).putSync(ClockDataKey.currentRest, data.currentRest)
     PrefsManager.getInstanceSync(preferenceName).putSync(ClockDataKey.isDone, data.isDone)
-    PrefsManager.getInstanceSync(preferenceName).putSync(ClockDataKey.isExtension, data.isExtension)
   }
 
   //获取组件数据
@@ -150,7 +148,6 @@ export class FocusDataUtil {
       currentRestSeconds: currentRestSeconds,
       currentRest: currentRest,
       isDone: isDone,
-      isExtension: isExtension
     }
 
     LogUtil.debug('缓存:获取操作 getClockData() 时钟数据 data===='   + JSON.stringify(data)  )

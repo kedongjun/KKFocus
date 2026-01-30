@@ -36,7 +36,6 @@ export class TomatoClockViewModel {
   public currentRestSeconds: number = 0
   public currentRest: number = 0
   public isDone: boolean = false
-  public isExtension: boolean = false
 
   // ============ 定时器管理 ============
   private timerId: number = -1
@@ -120,11 +119,12 @@ export class TomatoClockViewModel {
     }
     this.lastTimestamp = now
     this.currentTomatoSeconds = realElapsedTime
-    
-    if (this.currentTomatoSeconds >= this.tomatoDuration) {
+
+    if (this.currentTomatoSeconds >= this.tomatoDuration * 60) {
       this.handleSegmentComplete()
     }
-    
+
+
     this.notifyStateChange()
   }
   
@@ -139,8 +139,9 @@ export class TomatoClockViewModel {
     LogUtil.debug(`番茄钟: 完成第 ${this.currentTomato} 个番茄`)
     
     // 🆕 记录"完成第N个番茄"事件
-    this.addFocusEvent(3, `完成第${this.currentTomato}个番茄`, this.tomatoDuration)
-    
+    this.addFocusEvent(3, `完成第${this.currentTomato}个番茄`, this.tomatoDuration * 60)
+
+
     this.onSegmentCompleteCallback?.(this.currentTomato, this.tomatoNum)
     this.isPaused = true
     this.lastTimestamp = Date.now()
@@ -154,13 +155,12 @@ export class TomatoClockViewModel {
    * 处理全部完成
    */
   private handleAllComplete(): void {
-    this.isDone = true
-    this.isExtension = true  // 🆕 进入延长阶段
+    this.isDone = true// 🆕 进入延长阶段
     this.stop()
     
     LogUtil.debug('番茄钟: 全部番茄完成!')
     
-    // 🆕 保存isDone和isExtension状态到缓存
+    // 🆕 保存isDone状态到缓存
     this.saveClockData(Date.now())
     
     this.onAllCompleteCallback?.()
@@ -222,7 +222,6 @@ export class TomatoClockViewModel {
     this.useTime = 0
     this.isDone = false
     this.isPaused = false
-    this.isExtension = false
     this.segmentStartTime = 0
     
     this.notifyStateChange()
@@ -237,8 +236,7 @@ export class TomatoClockViewModel {
     LogUtil.debug(`番茄钟: 延长 ${count} 个番茄`)
     this.tomatoNum += count
     this.isDone = false
-    this.isExtension = false  // 🆕 退出延长阶段
-    
+
     // 🆕 记录"延长"事件
     this.addFocusEvent(6, `延长${count}个番茄`, 0)
     
@@ -246,7 +244,6 @@ export class TomatoClockViewModel {
     let clockData = FocusDataUtil.getClockData(FocusPreferenceName.Tomato)
     clockData.tomatoNum = this.tomatoNum
     clockData.isDone = false
-    clockData.isExtension = false
     FocusDataUtil.saveClockData(FocusPreferenceName.Tomato, clockData)
     
     if (this.isPaused) {
@@ -294,8 +291,7 @@ export class TomatoClockViewModel {
     this.useTime = state.useTime
     this.isPaused = state.isPaused
     this.isDone = state.isDone
-    this.isExtension = state.isExtension
-    
+
     this.notifyStateChange()
   }
   
@@ -335,6 +331,224 @@ export class TomatoClockViewModel {
     this.onStateChangeCallback = undefined
   }
 
+
+  /**
+   * 2️⃣ 无事件场景（startTimestamp 只在这里用）
+   * @param clock
+   * @param offlineSeconds
+   */
+  private restoreFromStartTimestamp(clock: ClockData, now: number): void {
+    const diffSeconds = Math.floor(
+      (now - clock.startTimestamp) / 1000
+    )
+
+    if (diffSeconds < clock.tomatoDuration * 60) {
+      clock.currentTomato = 1
+      clock.currentTomatoSeconds = diffSeconds
+      clock.isResting = false
+      return
+    }
+
+    clock.currentTomato = 1
+    clock.currentTomatoSeconds = clock.tomatoDuration * 60
+
+    if (clock.isAutoRested) {
+      clock.isResting = true
+      clock.currentRest = 1
+      clock.currentRestSeconds = 0
+    } else {
+      clock.isTipRest = true
+    }
+  }
+
+
+
+  /**
+   * 1️⃣ 恢复统一入口（这是关键中的关键）
+   * @param clock
+   * @param offlineSeconds
+   */
+  private restoreByEvents(clock: ClockData, events: BaseFocusDefinition.FocusRecordEventInputV2[]): void {
+    const now = Date.now()
+
+    if (events.length === 0) {
+      this.restoreFromStartTimestamp(clock, now)
+      return
+    }
+
+    const lastEvent = events[events.length - 1]
+    const offlineSeconds = Math.floor((now - clock.eventTimestamp) / 1000)
+
+    this.restoreFromLastEvent(clock, lastEvent, offlineSeconds)
+  }
+
+
+
+  restoreClock(): void {
+    const clock = this.getClockData()
+    if (!clock) return
+
+    const events = this.getFocusEvents() || []
+
+    this.restoreByEvents(clock, events)
+
+    FocusDataUtil.saveClockData(FocusPreferenceName.Tomato, clock)
+
+    this.applyClockToViewModel(clock)
+
+    // ⭐关键补齐
+    if (!this.isPaused && !this.isDone && !this.isResting) {
+      this.segmentStartTime = Date.now() - this.currentTomatoSeconds * 1000
+      this.lastTimestamp = Date.now()
+      this.start()
+    }
+  }
+
+
+  /**
+   * 把 clock 同步回 VM 本身
+   * @param clock
+   */
+  private applyClockToViewModel(clock: ClockData) {
+    this.currentTomato = clock.currentTomato
+    this.currentTomatoSeconds = clock.currentTomatoSeconds
+    this.currentRestSeconds = clock.currentRestSeconds
+    this.currentRest = clock.currentRest
+    this.isResting = clock.isResting
+    this.isPaused = clock.isPaused
+    this.isDone = clock.isDone
+    this.useTime = clock.useTime
+  }
+
+  ensureRunningIfNeeded() {
+    if (this.isDone) return
+    if (this.isPaused) return
+    if (this.isResting) return
+
+    if (!this.timerId) {
+      this.segmentStartTime = Date.now() - this.currentTomatoSeconds * 1000
+      this.start()
+    }
+  }
+
+
+
+
+  /**
+   * 3️⃣ 核心：基于最后事件的状态推演
+   * @param clock
+   * @param offlineSeconds
+   */
+  private restoreFromLastEvent(clock: ClockData, lastEvent: BaseFocusDefinition.FocusRecordEventInputV2, offlineSeconds: number): void {
+    switch (lastEvent.eventType) {
+      case 4:
+        this.restoreTomatoRunning(clock, offlineSeconds)
+        break
+      case 3:
+        this.restoreAfterTomatoDone(clock, offlineSeconds)
+        break
+      case 5:
+        this.restoreRestRunning(clock, offlineSeconds)
+        break
+      case 8:
+        this.restoreAfterRestDone(clock, offlineSeconds)
+        break
+      case 9:
+        clock.isDone = true
+        break
+    }
+  }
+
+
+  /**
+   * 🟢 A. 番茄进行中
+   * @param clock
+   * @param offlineSeconds
+   */
+  restoreTomatoRunning(clock: ClockData, offlineSeconds: number) {
+    const remain = clock.tomatoDuration * 60 - offlineSeconds
+
+    if (remain > 0) {
+      clock.currentTomatoSeconds += offlineSeconds
+      return
+    }
+
+    // 番茄完成
+    clock.currentTomatoSeconds = clock.tomatoDuration * 60
+
+
+    if (clock.currentTomato > clock.tomatoNum) {
+      clock.isDone = true
+      return
+    }
+
+    if (clock.isAutoRested) {
+      clock.isResting = true
+      clock.currentRest++
+    } else {
+      clock.isTipRest = true
+    }
+
+  }
+
+  /**
+   * 🟢 B. 番茄完成后的状态
+   * @param clock
+   * @param offlineSeconds
+   */
+  restoreAfterTomatoDone(clock: ClockData, offlineSeconds: number) {
+    if (!clock.isAutoRested) {
+      clock.isTipRest = true
+      return
+    }
+
+    if (offlineSeconds >= clock.restDuration * 60) {
+      // 休息也完成了
+      clock.isResting = false
+      clock.currentTomato++
+    } else {
+      clock.isResting = true
+      clock.currentRestSeconds = offlineSeconds
+    }
+  }
+
+  /**
+   * 🟢 C. 休息中
+   * @param clock
+   * @param offlineSeconds
+   */
+  restoreRestRunning(clock: ClockData, offlineSeconds: number) {
+    if (offlineSeconds < clock.restDuration * 60) {
+      clock.currentRestSeconds += offlineSeconds
+      return
+    }
+
+    // 休息完成
+    clock.isResting = false
+    clock.currentRestSeconds = clock.restDuration * 60
+  }
+
+  /**
+   * 🟢 D. 休息完成
+   * @param clock
+   * @param offlineSeconds
+   */
+  restoreAfterRestDone(clock: ClockData, offlineSeconds: number) {
+    if (clock.currentTomato > clock.tomatoNum) {
+      clock.isDone = true
+      return
+    }
+
+    if (!clock.isAutoRested) {
+      clock.isTipRest = true
+      return
+    }
+
+    clock.currentTomatoSeconds = offlineSeconds
+  }
+
+
+
   /**
    * 保存番茄钟事件数据快照
    */
@@ -373,6 +587,20 @@ export class TomatoClockViewModel {
     this.saveClockData(eventTime)
   }
 
+
+  /**
+   * 获取番茄钟事件数据列表
+   */
+  getFocusEvents(): Array<BaseFocusDefinition.FocusRecordEventInputV2> {
+
+    const data = FocusDataUtil.getEventData(FocusPreferenceName.Tomato)
+    if (!data || !data.eventList) {
+      return []
+    }
+    return data.eventList
+  }
+
+
   /**
    * 初始化番茄钟数据快照
    */
@@ -410,12 +638,15 @@ export class TomatoClockViewModel {
     clockData.currentRestSeconds = this.currentRestSeconds
     clockData.currentRest = this.currentRest
     clockData.isDone = this.isDone
-    clockData.isExtension = this.isExtension
 
     LogUtil.debug('番茄钟:saveClockData() 保存时钟数据 clockData===' + JSON.stringify(clockData))
     FocusDataUtil.saveClockData(FocusPreferenceName.Tomato, clockData)
   }
 
+
+  /**
+   * 获取番茄钟数据快照
+   */
   public getClockData(): ClockData {
     const clockData: ClockData = FocusDataUtil.getClockData(FocusPreferenceName.Tomato)
     return clockData

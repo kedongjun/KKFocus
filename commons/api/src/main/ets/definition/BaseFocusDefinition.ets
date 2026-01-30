@@ -122,7 +122,7 @@ export namespace BaseFocusDefinition {
   export interface FocusRecordEventInputV2 {
     content?: string;
     eventTime: string;
-    eventType: number;
+    eventType: number;//事件类型：1-暂停 2-继续 3-完成番茄钟 4-开始番茄钟 5-休息 6-延长 7-打开第三方应用 8-休息完成
     focusMinute: number;
     // eventTimestamp: number;//本地记录使用
   }
