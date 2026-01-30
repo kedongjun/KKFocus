@@ -127,7 +127,7 @@ export class TomatoClockViewModel {
 
     this.notifyStateChange()
   }
-  
+
   /**
    * 处理段完成
    */
@@ -135,17 +135,19 @@ export class TomatoClockViewModel {
     this.currentTomato++
     this.currentTomatoSeconds = 0
     this.segmentStartTime = 0
-    
+
     LogUtil.debug(`番茄钟: 完成第 ${this.currentTomato} 个番茄`)
-    
+
     // 🆕 记录"完成第N个番茄"事件
     this.addFocusEvent(3, `完成第${this.currentTomato}个番茄`, this.tomatoDuration * 60)
 
-
     this.onSegmentCompleteCallback?.(this.currentTomato, this.tomatoNum)
+
+    // ✅ 修复：完成一个番茄后，应该停止定时器
     this.isPaused = true
+    this.stop()  // 🔧 添加这行，停止定时器
     this.lastTimestamp = Date.now()
-    
+
     if (this.currentTomato >= this.tomatoNum) {
       this.handleAllComplete()
     }
@@ -178,22 +180,26 @@ export class TomatoClockViewModel {
     
     this.notifyStateChange()
   }
-  
+
   public resume(): void {
     if (!this.isPaused || this.isDone) return
-    
+
     LogUtil.debug('番茄钟: 恢复')
     this.isPaused = false
     this.lastTimestamp = Date.now()
     this.segmentStartTime = Date.now() - this.currentTomatoSeconds * 1000
-    
+
     // 🆕 记录"继续"事件
     this.addFocusEvent(2, '继续', 0)
-    
-    if (this.timerId === -1) {
-      this.start()
+
+    // ✅ 修复：确保定时器被清理后再启动
+    if (this.timerId !== -1) {
+      clearInterval(this.timerId)
+      this.timerId = -1
     }
-    
+
+    this.start()  // 重新启动定时器
+
     this.notifyStateChange()
   }
   
