@@ -85,6 +85,7 @@ export class RestViewModel {
       this.handleRestComplete()
     }
     
+    // 🔧 每次tick都通知状态变化（让Page保存进度）
     this.notifyStateChange()
   }
   
@@ -136,8 +137,18 @@ export class RestViewModel {
     // 标记为休息中
     this.isResting = true
     
-    // 启动定时器
-    this.start()
+    // 🔧 修复：直接启动定时器，不调用 start() 避免重置
+    if (this.timerId !== -1) {
+      clearInterval(this.timerId)
+    }
+    
+    this.lastTimestamp = Date.now()
+    
+    this.timerId = setInterval(() => {
+      this.tick()
+    }, this.TICK_INTERVAL)
+    
+    LogUtil.debug('RestClock: 恢复定时器启动')
   }
 
   public checkAndSync(): boolean {

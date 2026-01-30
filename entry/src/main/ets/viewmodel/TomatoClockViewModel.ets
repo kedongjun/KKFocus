@@ -32,7 +32,7 @@ export class TomatoClockViewModel {
   public useTime: number = 0
   public isPaused: boolean = false
   public isTipRest: boolean = false
-  public isResting: boolean = false
+  public isResting: boolean = false  // 🆕 是否正在休息（用于恢复状态判断）
   public currentRestSeconds: number = 0
   public currentRest: number = 0
   public isDone: boolean = false
@@ -399,7 +399,7 @@ export class TomatoClockViewModel {
     clockData.useTime = this.useTime
     clockData.currentTomatoSeconds = this.currentTomatoSeconds
     clockData.isTipRest = this.isTipRest
-    clockData.isResting = this.isResting
+    clockData.isResting = this.isResting  // 保存休息状态
     clockData.currentRestSeconds = this.currentRestSeconds
     clockData.currentRest = this.currentRest
     clockData.isDone = this.isDone
