@@ -4,22 +4,21 @@ import { TomatoClockViewModel } from '../viewmodel/TomatoClockViewModel'
 import { RestViewModel } from '../viewmodel/RestViewModel'
 import { TomatoClock } from '../view/TomatoClock'
 import { RestClock } from '../view/RestClock'
-
-
+import { ClockData, FocusDataUtil, FocusPreferenceName } from '../utils/FocusDataUtil'
 
 // 定义参数类型
 export interface RouterParams {
-  tomatoNum: number, // 番茄总数：第一次是从外部页面传进来
-  tomatoDuration: number, // 每个番茄时长（秒）：第一次是从外部页面传进来
-  tomatoModel: number, // 番茄类型：第一次是从外部页面传进来
-  isAutoRested: boolean, // 用户是否勾选了自动休息：第一次是从外部页面传进来
-  isStrict: boolean, // 用户是否勾选了严格专注：第一次是从外部页面传进来
-  title: string, // 用户是否勾选了严格专注：第一次是从外部页面传进来
-  restDuration: number, // 单次休息时长：第一次是初始化里面赋值
+  tomatoNum: number,
+  tomatoDuration: number,
+  tomatoModel: number,
+  isAutoRested: boolean,
+  isStrict: boolean,
+  title: string,
+  restDuration: number,
 }
 
 /**
- * 番茄钟页面 - 完整示例（使用SVGA扩散圆环动画）
+ * 番茄钟页面 - 完整示例(使用SVGA扩散圆环动画)
  * 
  * @author kedongjun
  * @since 2025-01-27
@@ -45,12 +44,18 @@ struct TomatoClockPage {
   @State restElapsedTime: number = 0
   @State isResting: boolean = false
   
+  // 🆕 延长阶段状态
+  @State isExtension: boolean = false
+  
   aboutToAppear() {
+    // ========== 检查是否需要恢复状态 ==========
+    const clockData = FocusDataUtil.getClockData(FocusPreferenceName.Tomato)
+    const isResuming = clockData.startTimestamp !== 0
+    
     // ========== 初始化番茄钟 ==========
-    //传过来的参数
-    const params = this.getUIContext().getRouter().getParams() as RouterParams; // 类型断言
+    const params = this.getUIContext().getRouter().getParams() as RouterParams;
     if (params) {
-      LogUtil.debug('番茄钟，传过来的参数，params====' + JSON.stringify(params))
+      LogUtil.debug('番茄钟,传过来的参数,params====' + JSON.stringify(params))
       this.tomatoViewModel.tomatoNum = params.tomatoNum;
       this.tomatoViewModel.tomatoDuration = params.tomatoDuration;
       this.tomatoViewModel.tomatoModel = params.tomatoModel;
@@ -58,31 +63,35 @@ struct TomatoClockPage {
       this.tomatoViewModel.isStrict = params.isStrict;
       this.tomatoViewModel.title = params.title;
       this.tomatoViewModel.restDuration = params.restDuration;
-      this.tomatoViewModel.initClockData()
+      
+      // 🆕 如果不是恢复状态,才初始化数据
+      if (!isResuming) {
+        this.tomatoViewModel.initClockData()
+      }
     }
-
     
-    // 设置状态变化回调 - 用于同步状态到UI
+    // 设置状态变化回调
     this.tomatoViewModel.onStateChange(() => {
       this.syncTomatoState()
     })
     
     // 设置段完成回调 - 进入休息
-    // 注意：使用绝对时间戳方案，即使息屏也能准确触发
     this.tomatoViewModel.onSegmentComplete((current, total) => {
       LogUtil.debug(`完成第 ${current}/${total} 个番茄`)
       
       if (current < total) {
-        // 还有剩余番茄，进入休息
-        this.enterRestMode()
+        // 🆕 记录"开始第N个休息"事件
+        this.tomatoViewModel.addFocusEvent(5, `开始第${current}次休息`, 0)
+        this.enterRestMode(current)
       }
     })
     
     // 设置全部完成回调
     this.tomatoViewModel.onAllComplete(() => {
-      LogUtil.debug('所有番茄完成！')
+      LogUtil.debug('所有番茄完成!')
+      this.isExtension = true  // 🆕 显示延长组件
       promptAction.showToast({
-        message: '🎉 恭喜完成所有番茄！',
+        message: '🎉 恭喜完成所有番茄!',
         duration: 3000
       })
     })
@@ -90,20 +99,23 @@ struct TomatoClockPage {
     // ========== 初始化休息 ==========
     this.restViewModel.restTime = this.restTime
     
-    // 设置休息状态变化回调
     this.restViewModel.onStateChange(() => {
       this.syncRestState()
     })
     
     // 设置休息完成回调 - 继续下一个番茄
-    // 注意：使用绝对时间戳方案，即使息屏也能准确触发
     this.restViewModel.onRestComplete(() => {
       LogUtil.debug('休息完成')
       this.exitRestMode()
     })
     
-    // 自动开始第一个番茄
-    this.tomatoViewModel.start()
+    // 🆕 如果是恢复状态,需要计算离线时间并恢复
+    if (isResuming) {
+      this.restoreFromCache(clockData)
+    } else {
+      // 自动开始第一个番茄
+      this.tomatoViewModel.start()
+    }
   }
   
   aboutToDisappear() {
@@ -112,12 +124,83 @@ struct TomatoClockPage {
   }
   
   /**
+   * 🆕 从缓存恢复状态(处理杀进程恢复)
+   */
+  private restoreFromCache(clockData: ClockData) {
+    LogUtil.debug('======= 从缓存恢复状态 =======')
+    LogUtil.debug('缓存数据: ' + JSON.stringify(clockData))
+    
+    // 恢复ViewModel状态
+    this.tomatoViewModel.tomatoNum = clockData.tomatoNum
+    this.tomatoViewModel.tomatoDuration = clockData.tomatoDuration
+    this.tomatoViewModel.restDuration = clockData.restDuration
+    this.tomatoViewModel.currentTomato = clockData.currentTomato
+    this.tomatoViewModel.useTime = clockData.useTime
+    this.tomatoViewModel.isPaused = clockData.isPaused
+    this.tomatoViewModel.isDone = clockData.isDone
+    this.tomatoViewModel.isExtension = clockData.isExtension
+    
+    // 恢复rest数据
+    this.restViewModel.restTime = clockData.restDuration
+    this.restTime = clockData.restDuration
+    
+    // 计算离线时间
+    const now = Date.now()
+    const offlineSeconds = (now - clockData.eventTimestamp) / 1000
+    LogUtil.debug(`离线时间: ${offlineSeconds}秒`)
+    
+    // 🆕 根据状态恢复到正确位置
+    if (clockData.isExtension) {
+      // 在延长阶段
+      LogUtil.debug('恢复到延长阶段')
+      this.isExtension = true
+      this.syncTomatoState()
+    } else if (clockData.isResting) {
+      // 在休息中
+      LogUtil.debug('恢复到休息阶段')
+      const expectedRestElapsed = clockData.currentRestSeconds + offlineSeconds
+      
+      if (expectedRestElapsed >= clockData.restDuration) {
+        // 休息已经应该结束,进入下一个番茄
+        LogUtil.debug('休息已结束,进入下一个番茄')
+        this.tomatoViewModel.addFocusEvent(4, `开始第${clockData.currentTomato + 1}个番茄`, 0)
+        this.tomatoViewModel.start()
+      } else {
+        // 🔧 修复：继续休息，使用 restoreAndContinue 方法
+        LogUtil.debug(`继续休息，已休息${expectedRestElapsed}秒`)
+        this.isResting = true
+        this.restViewModel.restoreAndContinue(expectedRestElapsed)
+      }
+    } else {
+      // 在番茄钟中
+      LogUtil.debug('恢复到番茄钟阶段')
+      const expectedTomatoElapsed = clockData.currentTomatoSeconds + offlineSeconds
+      
+      if (expectedTomatoElapsed >= clockData.tomatoDuration) {
+        // 番茄应该已经完成
+        const completedTomatoes = Math.floor(expectedTomatoElapsed / clockData.tomatoDuration)
+        LogUtil.debug(`应该完成了${completedTomatoes}个番茄`)
+        
+        // 🔧 修复：先设置正确的时间，再触发递归同步
+        this.tomatoViewModel.restoreAndContinue(expectedTomatoElapsed)
+        setTimeout(() => {
+          this.recursiveSync()
+        }, 100)
+      } else {
+        // 🔧 修复：继续当前番茄，使用 restoreAndContinue 方法
+        LogUtil.debug(`继续第${clockData.currentTomato + 1}个番茄，已用时${expectedTomatoElapsed}秒`)
+        this.tomatoViewModel.restoreAndContinue(expectedTomatoElapsed)
+      }
+    }
+    
+    this.syncTomatoState()
+  }
+  
+  /**
    * 页面显示 - 处理亮屏后的时间校准
    */
   onPageShow() {
     LogUtil.debug('======= 页面显示 - 开始时间校准 =======')
-    
-    // 启动递归校准，直到所有应该完成的阶段都处理完
     this.recursiveSync()
   }
   
@@ -125,27 +208,23 @@ struct TomatoClockPage {
    * 递归校准 - 处理所有应该完成的番茄和休息
    */
   private recursiveSync() {
-    if (this.isDone) {
-      LogUtil.debug('已全部完成，停止校准')
+    if (this.isDone && !this.isExtension) {
+      LogUtil.debug('已全部完成且不在延长阶段,停止校准')
       return
     }
     
     if (this.isResting) {
-      // 当前在休息，检查是否应该完成
       const shouldContinue = this.restViewModel.checkAndSync()
       
       if (shouldContinue) {
-        // 休息完成了，会触发exitRestMode，继续检查下一个番茄
         setTimeout(() => {
           this.recursiveSync()
         }, 50)
       }
-    } else {
-      // 当前在番茄钟，检查是否应该完成
+    } else if (!this.isExtension) {
       const shouldContinue = this.tomatoViewModel.checkAndSync()
       
       if (shouldContinue) {
-        // 番茄完成了，会触发enterRestMode，继续检查休息
         setTimeout(() => {
           this.recursiveSync()
         }, 50)
@@ -153,9 +232,6 @@ struct TomatoClockPage {
     }
   }
   
-  /**
-   * 页面隐藏 - 息屏或切到后台
-   */
   onPageHide() {
     LogUtil.debug('页面隐藏 - 息屏或后台')
   }
@@ -168,37 +244,45 @@ struct TomatoClockPage {
     this.isPaused = this.tomatoViewModel.isPaused
     this.isDone = this.tomatoViewModel.isDone
     this.useTime = this.tomatoViewModel.useTime
+    this.isExtension = this.tomatoViewModel.isExtension
   }
   
   private syncRestState() {
     this.restElapsedTime = this.restViewModel.elapsedTime
   }
   
-  private enterRestMode() {
+  /**
+   * 进入休息模式
+   */
+  private enterRestMode(restIndex: number) {
     LogUtil.debug('进入休息模式')
     this.isResting = true
     
-    // 立即启动休息倒计时 - 会设置restStartTime = Date.now()
-    // 关键：即使熄屏，休息ViewModel也会独立计时
+    // 设置休息序号
+    this.restViewModel.setRestIndex(restIndex)
     this.restViewModel.start()
     
     promptAction.showToast({
-      message: `完成第 ${this.currentSegment} 个番茄！休息 ${this.restTime} 秒`,
+      message: `完成第 ${this.currentSegment} 个番茄!休息 ${this.restTime} 秒`,
       duration: 2000
     })
   }
   
+  /**
+   * 退出休息模式
+   */
   private exitRestMode() {
-    LogUtil.debug('退出休息模式，继续番茄钟')
+    LogUtil.debug('退出休息模式,继续番茄钟')
     this.isResting = false
     this.restViewModel.reset()
     
-    // 恢复番茄钟 - resume方法会自动设置新的segmentStartTime
-    // segmentStartTime = Date.now() - elapsedTime * 1000
+    // 🆕 记录"开始第N个番茄"事件
+    this.tomatoViewModel.addFocusEvent(4, `开始第${this.currentSegment + 1}个番茄`, 0)
+    
     this.tomatoViewModel.resume()
     
     promptAction.showToast({
-      message: '开始新的番茄！',
+      message: '开始新的番茄!',
       duration: 1500
     })
   }
@@ -220,24 +304,94 @@ struct TomatoClockPage {
   build() {
     Stack() {
       if (this.isResting) {
-        // ========== 休息界面（SVGA扩散动画）==========
+        // ========== 休息界面(SVGA扩散动画)==========
         RestClock({
           restTime: this.restTime,
           elapsedTime: this.restElapsedTime,
           onSkip: () => {
-            // 点击"结束"按钮 - 跳过休息
             this.restViewModel.skip()
           },
           onFinish: () => {
-            // 点击"休息完成"按钮 - 立即结束休息
             this.restViewModel.skip()
           }
+        })
+      } else if (this.isExtension) {
+        // 🆕 ========== 延长组件 ==========
+        Column() {
+          Text('🎉 恭喜完成!')
+            .fontSize(32)
+            .fontColor(Color.White)
+            .fontWeight(FontWeight.Bold)
+            .margin({ top: 60, bottom: 40 })
+          
+          Column() {
+            Text(`已完成 ${this.tomatoNum} 个番茄`)
+              .fontSize(20)
+              .fontColor(Color.White)
+              .margin({ bottom: 16 })
+            
+            Text(`总用时: ${this.formatTotalTime(this.useTime)}`)
+              .fontSize(18)
+              .fontColor('#CCFFFFFF')
+              .margin({ bottom: 40 })
+            
+            Text('继续保持专注?')
+              .fontSize(16)
+              .fontColor('#CCFFFFFF')
+              .margin({ bottom: 24 })
+            
+            Row() {
+              Button('延长 +1')
+                .fontSize(16)
+                .fontColor('#1a4d6d')
+                .backgroundColor(Color.White)
+                .width(120)
+                .height(50)
+                .borderRadius(25)
+                .onClick(() => {
+                  this.tomatoViewModel.extend(1)
+                })
+                .margin({ right: 15 })
+              
+              Button('完成任务')
+                .fontSize(16)
+                .fontColor(Color.White)
+                .backgroundColor('rgba(255, 255, 255, 0.1)')
+                .border({ width: 1, color: Color.White, radius: 25 })
+                .width(120)
+                .height(50)
+                .onClick(() => {
+                  // 🆕 完成任务,清空缓存,返回首页
+                  this.tomatoViewModel.finishTask()
+                  
+                  promptAction.showToast({
+                    message: '任务已完成!',
+                    duration: 2000
+                  })
+                  
+                  this.getUIContext().getRouter().back()
+                })
+            }
+            .justifyContent(FlexAlign.Center)
+          }
+          .width('90%')
+          .padding(30)
+          .backgroundColor('rgba(255, 255, 255, 0.05)')
+          .borderRadius(20)
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .linearGradient({
+          angle: 180,
+          colors: [[0x1a4d6d, 0.0], [0x0d2639, 1.0]]
         })
       } else {
         // ========== 番茄钟界面 ==========
         Column() {
           Text('番茄钟专注')
             .fontSize(24)
+            .fontColor(Color.White)
             .fontWeight(FontWeight.Bold)
             .margin({ top: 40, bottom: 20 })
           
@@ -250,13 +404,14 @@ struct TomatoClockPage {
             .margin({ top: 40, bottom: 40 })
           
           Column() {
-            Text(`当前：第 ${this.currentSegment + 1}/${this.tomatoNum} 个番茄`)
+            Text(`当前: 第 ${this.currentSegment + 1}/${this.tomatoNum} 个番茄`)
               .fontSize(16)
+              .fontColor(Color.White)
               .margin({ bottom: 8 })
             
-            Text(`总用时：${this.formatTotalTime(this.useTime)}`)
+            Text(`总用时: ${this.formatTotalTime(this.useTime)}`)
               .fontSize(14)
-              .fontColor('#666666')
+              .fontColor('#CCFFFFFF')
               .margin({ bottom: 8 })
             
             Text(this.isDone ? '✅ 已完成' : (this.isPaused ? '⏸️ 已暂停' : '▶️ 进行中'))
@@ -300,4 +455,3 @@ struct TomatoClockPage {
     .height('100%')
   }
 }
-

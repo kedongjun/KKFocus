@@ -25,7 +25,7 @@ struct Index {
   public isAutoRested: boolean = false       // 用户是否勾选了自动休息
   public isStrict: boolean = false           // 用户是否勾选了严格专注
   public title: string = '番茄钟测试'          // 标题
-  public restDuration: number = 0            // 单次休息时长：第一次是初始化里面赋值
+  public restDuration: number = 30           // 单次休息时长：第一次是初始化里面赋值
 
 
   aboutToAppear(): void {
@@ -106,6 +106,7 @@ struct Index {
       .width('90%')
       .backgroundColor('#F5F5F5')
       .borderRadius(10)
+      .margin({top:100})
 
 
 
@@ -113,6 +114,7 @@ struct Index {
         .fontSize(30)
         .fontColor(Color.White)
         .fontWeight(FontWeight.Bold)
+        .margin({top:100})
         .onClick(() => {
          this.toTomatoClockPage()
         })
