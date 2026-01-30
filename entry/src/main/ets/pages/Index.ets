@@ -20,25 +20,20 @@ struct Index {
 
   // ============ 配置参数 ============
   public tomatoNum: number = 4               // 番茄总数：第一次是从外部页面传进来
-  public tomatoDuration: number = 30         // 每个番茄时长（秒）：第一次是从外部页面传进来
+  public tomatoDuration: number = 20         // 每个番茄时长（秒）：第一次是从外部页面传进来
   public tomatoModel: number = 3             // 番茄类型：1\2\3
   public isAutoRested: boolean = false       // 用户是否勾选了自动休息
   public isStrict: boolean = false           // 用户是否勾选了严格专注
   public title: string = '番茄钟测试'          // 标题
-  public restDuration: number = 30           // 单次休息时长：第一次是初始化里面赋值
+  public restDuration: number = 10           // 单次休息时长：第一次是初始化里面赋值
 
 
   aboutToAppear(): void {
-    //杀进程重启检测，如果有数据，直接跳转
+    // ========== 检查是否需要恢复状态 ==========
     const clockData = FocusDataUtil.getClockData(FocusPreferenceName.Tomato)
-    if (clockData.startTimestamp != 0) {
-      this.tomatoNum = clockData.tomatoNum
-      this.tomatoDuration = clockData.tomatoDuration
-      this.tomatoModel = clockData.tomatoModel
-      this.isAutoRested = clockData.isAutoRested
-      this.isStrict = clockData.isStrict
-      this.title = clockData.title
-      this.restDuration = clockData.restDuration
+    const isResuming = clockData.startTimestamp !== 0
+    //杀进程重启检测，如果有数据，直接跳转
+    if (isResuming) {
       this.toTomatoClockPage()
     }
   }

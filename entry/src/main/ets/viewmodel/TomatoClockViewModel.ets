@@ -242,6 +242,13 @@ export class TomatoClockViewModel {
     // 🆕 记录"延长"事件
     this.addFocusEvent(6, `延长${count}个番茄`, 0)
     
+    // 🔧 修复：保存 tomatoNum 到缓存
+    let clockData = FocusDataUtil.getClockData(FocusPreferenceName.Tomato)
+    clockData.tomatoNum = this.tomatoNum
+    clockData.isDone = false
+    clockData.isExtension = false
+    FocusDataUtil.saveClockData(FocusPreferenceName.Tomato, clockData)
+    
     if (this.isPaused) {
       // 🆕 记录"开始新番茄"事件
       this.addFocusEvent(4, `开始第${this.currentTomato + 1}个番茄`, 0)
@@ -337,7 +344,7 @@ export class TomatoClockViewModel {
 
     let event: BaseFocusDefinition.FocusRecordEventInputV2 = {
       eventTime: TimeUtil.formatDateToStr(new Date(eventTime)),
-      eventType: type,
+      eventType: type,//事件类型：1-暂停 2-继续 3-完成番茄钟 4-开始番茄钟 5-休息 6-延长 7-打开第三方应用 8-休息完成
       focusMinute: Math.floor(focusMinute / 60),
       content: content,
     }

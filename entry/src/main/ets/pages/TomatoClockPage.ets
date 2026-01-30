@@ -40,8 +40,8 @@ struct TomatoClockPage {
   @State useTime: number = 0
   
   // ============ 休息状态 ============
-  @State restTime: number = 10
-  @State restElapsedTime: number = 0
+  @State restDuration: number = 10
+  @State currentRestSeconds: number = 0
   @State isResting: boolean = false
   
   // 🆕 延长阶段状态
@@ -67,7 +67,8 @@ struct TomatoClockPage {
       this.tomatoViewModel.title = clockData.title
       
       // 设置页面配置
-      this.restTime = clockData.restDuration
+      this.restDuration = clockData.restDuration
+      this.currentRestSeconds = clockData.currentRestSeconds
       this.tomatoDuration = clockData.tomatoDuration
       this.tomatoNum = clockData.tomatoNum
     } else if (params) {
@@ -82,7 +83,7 @@ struct TomatoClockPage {
       this.tomatoViewModel.restDuration = params.restDuration;
       
       // 🔧 修复：设置页面的休息时长
-      this.restTime = params.restDuration;
+      this.restDuration = params.restDuration;
       this.tomatoDuration = params.tomatoDuration;
       this.tomatoNum = params.tomatoNum;
       
@@ -101,7 +102,7 @@ struct TomatoClockPage {
       
       if (current < total) {
         // 🆕 记录"开始第N个休息"事件
-        this.tomatoViewModel.addFocusEvent(5, `开始第${current}次休息`, 0)
+        // this.tomatoViewModel.addFocusEvent(5, `开始第${current}次休息`, 0)
         this.enterRestMode(current)
       }
     })
@@ -117,7 +118,7 @@ struct TomatoClockPage {
     })
     
     // ========== 初始化休息 ==========
-    this.restViewModel.restTime = this.restTime
+    this.restViewModel.restTime = this.restDuration
     
     this.restViewModel.onStateChange(() => {
       this.syncRestState()
@@ -153,8 +154,9 @@ struct TomatoClockPage {
     // 🔧 先恢复所有配置参数（从缓存中读取）
     this.tomatoNum = clockData.tomatoNum
     this.tomatoDuration = clockData.tomatoDuration
-    this.restTime = clockData.restDuration
-    
+    this.restDuration = clockData.restDuration
+    this.currentRestSeconds = clockData.currentRestSeconds
+
     // 恢复ViewModel状态
     this.tomatoViewModel.tomatoNum = clockData.tomatoNum
     this.tomatoViewModel.tomatoDuration = clockData.tomatoDuration
@@ -168,7 +170,8 @@ struct TomatoClockPage {
     
     // 恢复rest数据
     this.restViewModel.restTime = clockData.restDuration
-    
+    this.restViewModel.elapsedTime = clockData.currentRestSeconds
+
     // 计算离线时间
     const now = Date.now()
     const offlineSeconds = (now - clockData.eventTimestamp) / 1000
@@ -289,7 +292,7 @@ struct TomatoClockPage {
   }
   
   private syncRestState() {
-    this.restElapsedTime = this.restViewModel.elapsedTime
+    this.currentRestSeconds = this.restViewModel.elapsedTime
     
     // 🔧 如果正在休息，保存休息进度到缓存
     if (this.isResting) {
@@ -304,27 +307,28 @@ struct TomatoClockPage {
    * 进入休息模式
    */
   private enterRestMode(restIndex: number) {
-    LogUtil.debug(`进入休息模式，休息时长：${this.restTime}秒`)
+    LogUtil.debug(`进入休息模式，休息时长：${this.restDuration}秒`)
     this.isResting = true
     this.tomatoViewModel.isResting = true  // 🔧 设置ViewModel状态
     
     // 🔧 保存休息状态到缓存
     let clockData = FocusDataUtil.getClockData(FocusPreferenceName.Tomato)
-    clockData.isResting = true
-    clockData.currentRestSeconds = 0  // 刚开始休息
-    clockData.currentRest = restIndex
-    clockData.eventTimestamp = Date.now()
-    FocusDataUtil.saveClockData(FocusPreferenceName.Tomato, clockData)
-    
+    this.tomatoViewModel.isResting = true
+    this.tomatoViewModel.currentRestSeconds = 0  // 刚开始休息
+    this.tomatoViewModel.currentRest = restIndex
+    // this.tomatoViewModel.eventTimestamp = Date.now()
+    // FocusDataUtil.saveClockData(FocusPreferenceName.Tomato, clockData)
+    this.tomatoViewModel.addFocusEvent(5, `开始第${restIndex}个休息`, Date.now())
+
     // 🔧 设置休息时长和序号
-    this.restViewModel.restTime = this.restTime
+    this.restViewModel.restTime = this.restDuration
     this.restViewModel.setRestIndex(restIndex)
     this.restViewModel.start()
     
     LogUtil.debug(`RestViewModel.restTime 设置为：${this.restViewModel.restTime}秒`)
     
     promptAction.showToast({
-      message: `完成第 ${this.currentSegment} 个番茄!休息 ${this.restTime} 秒`,
+      message: `完成第 ${this.currentSegment} 个番茄!休息 ${this.restDuration} 秒`,
       duration: 2000
     })
   }
@@ -339,15 +343,16 @@ struct TomatoClockPage {
     this.restViewModel.reset()
     
     // 🔧 清除休息状态缓存
-    let clockData = FocusDataUtil.getClockData(FocusPreferenceName.Tomato)
-    clockData.isResting = false
-    clockData.currentRestSeconds = 0
-    clockData.eventTimestamp = Date.now()
-    FocusDataUtil.saveClockData(FocusPreferenceName.Tomato, clockData)
+    this.tomatoViewModel.isResting = false
+    this.tomatoViewModel.currentRestSeconds = 0
+
     
     // 🆕 记录"开始第N个番茄"事件
-    this.tomatoViewModel.addFocusEvent(4, `开始第${this.currentSegment + 1}个番茄`, 0)
+    // this.tomatoViewModel.addFocusEvent(4, `开始第${this.currentSegment + 1}个番茄`, 0)
     
+    // 🔧 修复：重置番茄状态，开始新的番茄
+    this.tomatoViewModel.currentTomatoSeconds = 0
+    this.tomatoViewModel.isPaused = false
     this.tomatoViewModel.resume()
     
     promptAction.showToast({
@@ -375,8 +380,8 @@ struct TomatoClockPage {
       if (this.isResting) {
         // ========== 休息界面(SVGA扩散动画)==========
         RestClock({
-          restTime: this.restTime,
-          elapsedTime: this.restElapsedTime,
+          restTime: this.restDuration,
+          elapsedTime: this.currentRestSeconds,
           onSkip: () => {
             this.restViewModel.skip()
           },
